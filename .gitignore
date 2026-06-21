@@ -1,0 +1,27 @@
+# Rust
+/backend/target
+**/*.rs.bk
+Cargo.lock
+
+# Node / Vite
+node_modules/
+/frontend/dist
+/frontend/dist-ssr
+*.local
+
+# SQLite databases
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+subfixer.db*
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# Python (none expected, but guard the offload venv)
+.venv/
+__pycache__/

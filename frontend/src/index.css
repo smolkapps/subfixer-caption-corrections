@@ -1,0 +1,278 @@
+:root {
+  --bg: #0f1115;
+  --panel: #1a1d24;
+  --panel-2: #21252e;
+  --text: #e6e9ef;
+  --muted: #9aa3b2;
+  --accent: #4f8cff;
+  --accent-2: #3a6fd8;
+  --ins-bg: #133a1f;
+  --ins-fg: #7ee2a0;
+  --del-bg: #3a1416;
+  --del-fg: #ff9aa0;
+  --border: #2b303b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.app {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 0 1rem 3rem;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+
+.logo {
+  font-weight: 800;
+  font-size: 1.4rem;
+  color: var(--accent);
+  letter-spacing: -0.5px;
+}
+
+.tagline {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+nav a {
+  color: var(--muted);
+  text-decoration: none;
+  margin-left: 1rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+nav a.active {
+  color: var(--text);
+  background: var(--panel-2);
+}
+
+h2 {
+  margin-top: 0;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+form label {
+  display: block;
+  margin-bottom: 0.9rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+input[type="text"],
+input[type="url"],
+textarea {
+  display: block;
+  width: 100%;
+  margin-top: 0.35rem;
+  padding: 0.6rem 0.7rem;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text);
+  font: inherit;
+  font-weight: 400;
+}
+
+input[aria-invalid="true"] {
+  border-color: var(--del-fg);
+}
+
+textarea {
+  resize: vertical;
+}
+
+.row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.row > label {
+  flex: 1 1 200px;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+
+.checkbox input {
+  width: auto;
+  margin: 0;
+}
+
+button {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 0.6rem 1.1rem;
+  border-radius: 7px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: var(--accent-2);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.secondary {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.actions {
+  display: flex;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  margin-top: 0.4rem;
+}
+
+.preview {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.8rem;
+  margin: 0.5rem 0 1rem;
+}
+
+.diff-view {
+  margin: 0.4rem 0 0;
+  word-break: break-word;
+}
+
+.diff-ins,
+ins.diff-ins {
+  background: var(--ins-bg);
+  color: var(--ins-fg);
+  text-decoration: none;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+.diff-del,
+del.diff-del {
+  background: var(--del-bg);
+  color: var(--del-fg);
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+.diff-empty {
+  color: var(--muted);
+}
+
+.status {
+  margin: 0.6rem 0 0;
+  font-weight: 600;
+}
+
+.status.ok,
+.ok {
+  color: var(--ins-fg);
+}
+
+.status.err,
+.err {
+  color: var(--del-fg);
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.corrections {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.corrections li {
+  border-top: 1px solid var(--border);
+  padding: 0.7rem 0;
+}
+
+.corrections .ts {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.corrections .by {
+  font-weight: 700;
+}
+
+table.leaderboard {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1.5rem;
+}
+
+table.leaderboard th,
+table.leaderboard td {
+  text-align: left;
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid var(--border);
+}
+
+table.leaderboard th {
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+table.leaderboard td:nth-child(3),
+table.leaderboard td:nth-child(4) {
+  font-variant-numeric: tabular-nums;
+}
+
+footer {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+}
