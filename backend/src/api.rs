@@ -4,20 +4,33 @@ use crate::diff::{diff_captions, CaptionDiff};
 use crate::error::SubFixerError;
 use crate::store::{NewCorrection, Store};
 use axum::{
+    body::Body,
     extract::{Query, State},
-    response::Json,
-    routing::{get, post},
+    http::{header, Method, Request, StatusCode},
+    response::{IntoResponse, Json, Response},
+    routing::{any, get, post},
     Router,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use tower::Layer as _;
+use tower::ServiceExt as _; // for `oneshot`
 use tower_http::cors::{Any, CorsLayer};
+use tower_http::normalize_path::NormalizePathLayer;
+use tower_http::services::{ServeDir, ServeFile};
+use tower_http::trace::TraceLayer;
 
 /// Shared application state.
 pub type AppState = Arc<Store>;
 
-/// Build the API router (no static file serving; mounted by the binary).
+/// Build the API router (no static file serving; mounted by [`app`]).
+///
+/// Every `/api/*` path is owned here: the real endpoints, plus catch-alls for
+/// `/api`, `/api/`, and any other `/api/...` path that resolves to a JSON 404.
+/// The catch-alls are registered *before* `.layer(cors)` so that even the 404
+/// carries the CORS headers a cross-origin client needs to read it.
 pub fn router(state: AppState) -> Router {
     let cors = CorsLayer::new()
         .allow_origin(Any)
@@ -31,8 +44,69 @@ pub fn router(state: AppState) -> Router {
         .route("/api/leaderboard", get(leaderboard))
         .route("/api/anonymity", post(set_anonymity))
         .route("/api/preview-diff", post(preview_diff))
+        // Unknown API paths return a JSON 404 rather than falling through to the
+        // SPA's index.html. `/api` and `/api/` are spelled out because the
+        // wildcard below only matches a non-empty suffix.
+        .route("/api", any(api_not_found))
+        .route("/api/", any(api_not_found))
+        .route("/api/*rest", any(api_not_found))
         .with_state(state)
         .layer(cors)
+}
+
+/// Build the full application the binary serves: the API router, the SPA static
+/// files, and an `index.html` fallback for client-side routes.
+///
+/// Composition notes tied to specific failure modes:
+/// - The SPA `index.html` fallback only fires for requests that `Accept:
+///   text/html` (i.e. browser navigations). A missing hashed asset requested by
+///   `<script type="module">` (which sends `Accept: */*`) therefore gets an
+///   honest 404 instead of `index.html`, so deploy skew surfaces as a clear
+///   404 rather than a confusing module-MIME refusal on a stale bundle.
+/// - A [`NormalizePathLayer`] trims a trailing slash *before* routing, so
+///   `/api/health/` resolves to the real endpoint (JSON) instead of the SPA
+///   fallback (HTML). It must wrap the router from the outside to run ahead of
+///   routing, so it is nested inside an outer [`Router`] via `fallback_service`.
+pub fn app(state: AppState, static_dir: &str) -> Router {
+    let index_html: PathBuf = Path::new(static_dir).join("index.html");
+
+    // Fallback used by `ServeDir` when no static file matches: serve
+    // `index.html` for browser navigations (`Accept: text/html`), otherwise a
+    // JSON 404. This is what keeps a missing hashed asset (requested by
+    // `<script type=module>` with `Accept: */*`) from being masked as a 200
+    // `index.html` and surfacing later as a blank module-MIME page.
+    let spa_index = tower::service_fn(move |req: Request<Body>| {
+        let index_html = index_html.clone();
+        async move {
+            let wants_html = req.method() == Method::GET
+                && req
+                    .headers()
+                    .get(header::ACCEPT)
+                    .and_then(|v| v.to_str().ok())
+                    .is_some_and(|accept| accept.contains("text/html"));
+
+            let resp: Response = if wants_html {
+                ServeFile::new(index_html).oneshot(req).await.into_response()
+            } else {
+                (StatusCode::NOT_FOUND, Json(json!({ "error": "not found" }))).into_response()
+            };
+            Ok::<_, std::convert::Infallible>(resp)
+        }
+    });
+    let spa = ServeDir::new(static_dir).fallback(spa_index);
+
+    let composed = router(state)
+        .fallback_service(spa)
+        .layer(TraceLayer::new_for_http());
+
+    let normalized = NormalizePathLayer::trim_trailing_slash().layer(composed);
+    Router::new().fallback_service(normalized)
+}
+
+/// Catch-all for unregistered `/api/*` paths: a JSON 404 rather than the SPA
+/// fallback's index.html.
+async fn api_not_found() -> SubFixerError {
+    SubFixerError::NotFound("no such API endpoint".into())
 }
 
 async fn health() -> Json<Value> {

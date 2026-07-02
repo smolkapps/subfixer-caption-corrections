@@ -2,10 +2,8 @@
 //! frontend from `./static`.
 
 use std::sync::Arc;
-use subfixer::api::{router, AppState};
-use subfixer::{Store, SubFixerError};
-use tower_http::services::{ServeDir, ServeFile};
-use tower_http::trace::TraceLayer;
+use subfixer::api::{app, AppState};
+use subfixer::Store;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -19,17 +17,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let store: AppState = Arc::new(Store::open(&db_path)?);
     tracing::info!("opened store at {db_path}");
 
-    // Serve the built SPA from ./static if it exists; the API is always mounted.
-    // Unknown non-API paths fall back to index.html so client-side routes
-    // (e.g. /leaderboard) survive a refresh or deep link; unknown /api/* paths
-    // stay JSON 404s instead of leaking HTML.
+    // Compose the API + SPA static serving + client-side-route fallback. The
+    // routing rules (JSON 404 for unknown `/api/*`, trailing-slash
+    // normalization, HTML fallback only for browser navigations) all live in
+    // `subfixer::api::app` so they are exercised by the integration tests.
     let static_dir = std::env::var("SUBFIXER_STATIC").unwrap_or_else(|_| "static".to_string());
-    let index_html = std::path::Path::new(&static_dir).join("index.html");
-    let spa = ServeDir::new(&static_dir).fallback(ServeFile::new(index_html));
-    let app = router(store)
-        .route("/api/*rest", axum::routing::any(api_not_found))
-        .fallback_service(spa)
-        .layer(TraceLayer::new_for_http());
+    let app = app(store, &static_dir);
 
     let addr = std::env::var("SUBFIXER_ADDR").unwrap_or_else(|_| "0.0.0.0:8080".to_string());
     let listener = tokio::net::TcpListener::bind(&addr).await?;
@@ -39,12 +32,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_graceful_shutdown(shutdown_signal())
         .await?;
     Ok(())
-}
-
-/// Catch-all for unregistered `/api/*` paths: a JSON 404 rather than the SPA
-/// fallback's index.html.
-async fn api_not_found() -> SubFixerError {
-    SubFixerError::NotFound("no such API endpoint".into())
 }
 
 async fn shutdown_signal() {
