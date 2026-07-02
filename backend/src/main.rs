@@ -3,8 +3,8 @@
 
 use std::sync::Arc;
 use subfixer::api::{router, AppState};
-use subfixer::Store;
-use tower_http::services::ServeDir;
+use subfixer::{Store, SubFixerError};
+use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
 
 #[tokio::main]
@@ -20,9 +20,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("opened store at {db_path}");
 
     // Serve the built SPA from ./static if it exists; the API is always mounted.
+    // Unknown non-API paths fall back to index.html so client-side routes
+    // (e.g. /leaderboard) survive a refresh or deep link; unknown /api/* paths
+    // stay JSON 404s instead of leaking HTML.
     let static_dir = std::env::var("SUBFIXER_STATIC").unwrap_or_else(|_| "static".to_string());
+    let index_html = std::path::Path::new(&static_dir).join("index.html");
+    let spa = ServeDir::new(&static_dir).fallback(ServeFile::new(index_html));
     let app = router(store)
-        .fallback_service(ServeDir::new(&static_dir))
+        .route("/api/*rest", axum::routing::any(api_not_found))
+        .fallback_service(spa)
         .layer(TraceLayer::new_for_http());
 
     let addr = std::env::var("SUBFIXER_ADDR").unwrap_or_else(|_| "0.0.0.0:8080".to_string());
@@ -33,6 +39,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_graceful_shutdown(shutdown_signal())
         .await?;
     Ok(())
+}
+
+/// Catch-all for unregistered `/api/*` paths: a JSON 404 rather than the SPA
+/// fallback's index.html.
+async fn api_not_found() -> SubFixerError {
+    SubFixerError::NotFound("no such API endpoint".into())
 }
 
 async fn shutdown_signal() {
