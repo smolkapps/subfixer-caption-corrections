@@ -179,7 +179,7 @@ impl Store {
         })
     }
 
-    /// List all corrections for a given video, newest first. The video is
+    /// List all corrections for a given video, ordered by timestamp. The video is
     /// identified by the same URL normalization used at submit time, so callers
     /// can pass any URL form.
     pub fn corrections_for_video(&self, video_url: &str) -> Result<Vec<Correction>, SubFixerError> {

@@ -2,10 +2,8 @@
 //! frontend from `./static`.
 
 use std::sync::Arc;
-use subfixer::api::{router, AppState};
+use subfixer::api::{app, AppState};
 use subfixer::Store;
-use tower_http::services::ServeDir;
-use tower_http::trace::TraceLayer;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -19,11 +17,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let store: AppState = Arc::new(Store::open(&db_path)?);
     tracing::info!("opened store at {db_path}");
 
-    // Serve the built SPA from ./static if it exists; the API is always mounted.
+    // Compose the API + SPA static serving + client-side-route fallback. The
+    // routing rules (JSON 404 for unknown `/api/*`, trailing-slash
+    // normalization, HTML fallback only for browser navigations) all live in
+    // `subfixer::api::app` so they are exercised by the integration tests.
     let static_dir = std::env::var("SUBFIXER_STATIC").unwrap_or_else(|_| "static".to_string());
-    let app = router(store)
-        .fallback_service(ServeDir::new(&static_dir))
-        .layer(TraceLayer::new_for_http());
+    let app = app(store, &static_dir);
 
     let addr = std::env::var("SUBFIXER_ADDR").unwrap_or_else(|_| "0.0.0.0:8080".to_string());
     let listener = tokio::net::TcpListener::bind(&addr).await?;

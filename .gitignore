@@ -25,3 +25,6 @@ subfixer.db*
 # Python (none expected, but guard the offload venv)
 .venv/
 __pycache__/
+
+# Built SPA copy served by the backend (created by the README "run together" step)
+/backend/static
