@@ -13,7 +13,12 @@ use tower::ServiceExt; // for `oneshot`
 /// A static-asset fixture on disk: `index.html` plus a hashed JS asset. Uses the
 /// per-test-binary temp dir cargo hands to integration tests.
 fn static_dir() -> String {
-    let dir = format!("{}/spa", env!("CARGO_TARGET_TMPDIR"));
+    // Unique dir per call: concurrent tests must not race on a shared
+    // index.html (one test's truncate-then-write vs another's ServeFile read).
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    static COUNTER: AtomicUsize = AtomicUsize::new(0);
+    let n = COUNTER.fetch_add(1, Ordering::Relaxed);
+    let dir = format!("{}/spa-{n}", env!("CARGO_TARGET_TMPDIR"));
     let assets = format!("{dir}/assets");
     std::fs::create_dir_all(&assets).unwrap();
     std::fs::write(
